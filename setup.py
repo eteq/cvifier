@@ -10,5 +10,5 @@ setup(name='cvifier',
       url='https://github.com/eteq/cvifier',
       packages=['cvifier'],
       provides='cvifier',
-      requires=['docutils', 'jinja2']
+      requires=['docutils']
      )

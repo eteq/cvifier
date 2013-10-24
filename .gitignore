@@ -27,4 +27,3 @@ pip-log.txt
 .tox
 nosetests.xml
 
-testcontent

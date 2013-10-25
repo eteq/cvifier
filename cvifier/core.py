@@ -19,20 +19,6 @@ Module with the main functionality for `cvifier`
 from __future__ import division
 
 
-def read_to_doctree(f):
-    """
-    Generates a doctree from the file or filename`f`
-    """
-    from docutils.core import publish_doctree
-
-    if hasattr(f, 'read'):
-            s = f.read()
-    else:
-        with open(f, 'r') as fo:
-            s = fo.read()
-
-    return publish_doctree(s)
-
 CONTACT_INFO_SECTIONS = ('name', 'address', 'phone', 'email', 'fax')
 
 def extract_contact_info(doctree):
@@ -58,7 +44,7 @@ def extract_contact_info(doctree):
     return cidict
 
 
-def load_settings(content, comment='#'):
+def load_settings(content, comment=None):
     """
     Parses a settings file.
 
@@ -96,8 +82,8 @@ def load_settings(content, comment='#'):
     from collections import defaultdict, OrderedDict
 
     markerrex = re.compile(r'\[(.*?)\](.*)')
-    commentre = re.compile(r'(.*?)((?<!\\){0})'.format(comment))
-    esccomment = '\\' + comment
+    commentre = re.compile(r'(.*?)((?<!\\){0})'.format(comment)) if comment else None
+    esccomment = '\\' + comment if comment else None
 
     if isinstance(content, basestring):
         with open(content, 'r') as f:
@@ -113,14 +99,14 @@ def load_settings(content, comment='#'):
     orderedsections = []
     insection = None
     for l in lines:
-        #
-        mtch = commentre.match(l)
+        mtch = None if commentre is None else commentre.match(l)
         if mtch is not None:
             l = mtch.group(1)
             if l == '':
                 # pure comment line
                 continue
-        l.replace(esccomment, comment)
+        if esccomment is not None:
+            l.replace(esccomment, comment)
 
         mtch = markerrex.match(l)
 
@@ -136,30 +122,138 @@ def load_settings(content, comment='#'):
     return OrderedDict([(k, '\n'.join(seccontent[k]).rstrip()) for k in orderedsections])
 
 
-def write_doctree(doctree, writer, fout=None, settingsfile=None):
+def extract_texts(node):
     """
-    Writes out the `doctree` to the file `fout` using the `writer` given
-    as an object or name.
+    gets the '#text' items from the provided node and returns them
+    """
+    cond = lambda n: n.tagname == '#text' and n.parent.tagname != 'title'
+    return node.traverse(condition=cond, include_self=False)
+
+
+DEFAULT_CITABLE_LEFT = ('[address]', )
+DEFAULT_CITABLE_RIGHT = ('phone', 'fax', 'email')
+
+
+def make_citable(cistrdict, writer_name, leftfields=DEFAULT_CITABLE_LEFT,
+                 rightfields=DEFAULT_CITABLE_RIGHT):
+    if writer_name == 'html':
+        italicize = lambda s: '<i>' + s + '</i>'
+        startrow = '<tr><td>'
+        endrow = '</td></tr>'
+        colsep = '</td><td>'
+    elif writer_name == 'latex':
+        italicize = lambda s: '\\textit{' + s + '}'
+        startrow = ''
+        endrow = r'\\'
+        colsep = '&'
+    else:
+        raise ValueError("can't make citable for writer " + writer_name)
+
+    rightlines = []
+    leftlines = []
+    for fields, lines in [(leftfields, leftlines), (rightfields, rightlines)]:
+        for fi in fields:
+            #[name] means don't include the name
+            if fi.startswith('[') and fi.endswith(']'):
+                fi = fi[1:-1]
+                prefix = ''
+            else:
+                prefix = italicize(fi[0].upper() + fi[1:] + ': ')
+
+            tspl = cistrdict[fi].split('\n')
+            tspl[0] = prefix + tspl[0]
+            lines.extend(tspl)
+
+    tablelines = []
+    for i in range(max(len(leftlines), len(rightlines))):
+        li = leftlines[i] if i < len(leftlines) else ''
+        ri = rightlines[i] if i < len(rightlines) else ''
+        tablelines.append(startrow + li + colsep + ri + endrow)
+
+    return '\n'.join(tablelines)
+
+
+#settings that apply here, instead of in docutils
+SPECIAL_SETTINGS = {'latex': ['nobullets']}
+
+def apply_special_settings(writtenstr, specialsettings):
+    if 'latex_nobullets' in specialsettings:
+        writtenstr = writtenstr.replace(r'\item', r'\item[]')
+
+    return writtenstr
+
+def main(content, writer, fout=None, settingsfile=None):
+    """
+    Reads `content` as doctree, then write to the file `fout` using the
+    `writer` given as an object or name.
 
     Loads settings from the default name if `settingsfile` is None, otherwise,
     the specified file.
 
     Returns the written content.
     """
-    from docutils.core import publish_from_doctree
+    from os.path import exists
+    from docutils.core import publish_from_doctree, publish_doctree
+    from docutils.nodes import raw as Raw
+    from docutils.writers import get_writer_class
 
-    if isinstance(writer, basestring):
-        stgs = load_settings(writer + '.cvsettings')
-        res = publish_from_doctree(doctree, writer_name=writer, settings_overrides=stgs)
+    #first read the docstring
+    if hasattr(content, 'children'):
+        #assume this is a doctree
+        doctree = content
+    if hasattr(content, 'read'):
+        s = f.read()
+        doctree = publish_doctree(s)
     else:
-        stgs = load_settings(writer.supported[0] + '.cvsettings')
-        res = publish_from_doctree(doctree, writer=writer, settings_overrides=stgs)
+        with open(content, 'r') as fo:
+            s = fo.read()
+            doctree = publish_doctree(s)
+
+    #now figure out the writer and its settings
+    if isinstance(writer, basestring):
+        writer_name = writer
+        if settingsfile is None:
+            settingsfile = writer_name + '.cvsettings'
+        stgs = load_settings(settingsfile) if exists(settingsfile) else None
+        writer = get_writer_class(writer_name)()
+    else:
+        writer_name = writer.supported[0]
+        if settingsfile is None:
+            settingsfile = writer_name + '.cvsettings'
+        stgs = load_settings(settingsfile) if exists(settingsfile) else None
+
+    #now substitute the contact info if called for
+    if 'contactinfotemplate' in stgs:
+        citempl = stgs.pop('contactinfotemplate')
+    elif 'contactinfotemplate\\' in stgs:
+        citempl = stgs.pop('contactinfotemplate\\')
+        #makes all "real" curly brackets into double-brackets, and \ed ones into singles
+        citempl = citempl.replace('{', '{{').replace('}', '}}')
+        citempl = citempl.replace('\\{', '').replace('\\}', '')
+    else:
+        citempl = None
+    if citempl:
+        cistrdict = dict([(k, extract_texts(v)[-1]) for k, v in extract_contact_info(doctree).iteritems()])
+
+        if '{citabledata}' in citempl:
+            cistrdict['citabledata'] = make_citable(cistrdict, writer_name)
+        cistr = citempl.format(**cistrdict)
+        doctree.insert(0, Raw(text=cistr, format=writer_name))
+
+    specialsettings = {}
+    for si in SPECIAL_SETTINGS.get(writer_name, ''):
+        if si in stgs:
+            specialsettings[writer_name + '_' + si] = stgs.pop(si)
+
+    #now generate the actual output
+    outstr = publish_from_doctree(doctree, writer=writer, settings_overrides=stgs)
+    outstr = apply_special_settings(outstr, specialsettings)
 
     if fout:
         if hasattr(fout, 'write'):
-            fout.write(res)
+            fout.write(outstr)
         else:
             with open(fout, 'w') as f:
-                f.write(res)
+                f.write(outstr)
 
-    return res
+    return outstr

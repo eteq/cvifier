@@ -10,5 +10,6 @@ setup(name='cvifier',
       url='https://github.com/eteq/cvifier',
       packages=['cvifier'],
       provides='cvifier',
-      requires=['docutils']
+      requires=['docutils'],
+      scripts=['scripts/cvifier']
      )

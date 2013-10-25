@@ -2,6 +2,7 @@
 \makeheading{\{name\}}
 
 \section{Contact Information}
+\vspace{-\baselineskip}
 %
 % NOTE: Mind where the & separators and \\ breaks are in the following
 %       table.
@@ -19,6 +20,9 @@
 
 [nobullets]
 content doesn't matter here
+
+[postsection]
+\vspace{-\baselineskip}
 
 [documentclass]
 article
@@ -127,6 +131,10 @@ article
 \hypersetup{colorlinks,breaklinks,
             linkcolor=darkblue,urlcolor=darkblue,
             anchorcolor=darkblue,citecolor=darkblue}
+
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=\parindent,itemsep=0pt,topsep=0pt,partopsep=0pt,parsep
+=0pt}
 
 %%%%%%%%%%%%%%% End Document Setup %%%%%%%%%%%%%%%%%%%%%
 

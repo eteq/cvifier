@@ -158,7 +158,7 @@ def make_citable(cistrdict, writer_name, leftfields=DEFAULT_CITABLE_LEFT,
                 fi = fi[1:-1]
                 prefix = ''
             else:
-                prefix = italicize(fi[0].upper() + fi[1:] + ': ')
+                prefix = italicize(fi[0].upper() + fi[1:] + ':') + '~'
 
             tspl = cistrdict[fi].split('\n')
             tspl[0] = prefix + tspl[0]
@@ -174,13 +174,38 @@ def make_citable(cistrdict, writer_name, leftfields=DEFAULT_CITABLE_LEFT,
 
 
 #settings that apply here, instead of in docutils
-SPECIAL_SETTINGS = {'latex': ['nobullets']}
+SPECIAL_SETTINGS = {'latex': ['nobullets', 'preitemize', 'postsection']}
 
-def apply_special_settings(writtenstr, specialsettings):
+
+def apply_doctree_special_settings(doctree, specialsettings):
+    from docutils.nodes import raw as Raw
+
+    if 'latex_postsection' in specialsettings:
+        txt = specialsettings['latex_postsection']
+        toinsert = []
+        for node in doctree:
+            if node.tagname == 'section':
+                #insert at 1 to go after title
+                for i, node2 in enumerate(node):
+                    if node2.tagname == 'title':
+                        #after title
+                        node.insert(i + 1, Raw(text=txt, format='latex'))
+                        break
+
+    return doctree
+
+def apply_str_special_settings(writtenstr, specialsettings):
+    import re
+
     if 'latex_nobullets' in specialsettings:
         writtenstr = writtenstr.replace(r'\item ', r'\item[] ')
 
+    if 'latex_preitemize' in specialsettings:
+        hdr = specialsettings['latex_preitemize']
+        writtenstr = writtenstr.replace(r'\begin{itemize}', hdr + '\n' + r'\begin{itemize}')
+
     return writtenstr
+
 
 def main(content, writer, fout=None, settingsfile=None):
     """
@@ -257,8 +282,9 @@ def main(content, writer, fout=None, settingsfile=None):
 
 
     #now generate the actual output
+    doctree = apply_doctree_special_settings(doctree, specialsettings)
     outstr = publish_from_doctree(doctree, writer=writer, settings_overrides=stgs)
-    outstr = apply_special_settings(outstr, specialsettings)
+    outstr = apply_str_special_settings(outstr, specialsettings)
 
     if fout:
         if hasattr(fout, 'write'):

@@ -17,6 +17,8 @@
 \{citabledata\}
 \end{tabular}
 
+[nobullets]
+content doesn't matter here
 
 [documentclass]
 article

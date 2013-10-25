@@ -178,7 +178,7 @@ SPECIAL_SETTINGS = {'latex': ['nobullets']}
 
 def apply_special_settings(writtenstr, specialsettings):
     if 'latex_nobullets' in specialsettings:
-        writtenstr = writtenstr.replace(r'\item', r'\item[]')
+        writtenstr = writtenstr.replace(r'\item ', r'\item[] ')
 
     return writtenstr
 
@@ -232,7 +232,7 @@ def main(content, writer, fout=None, settingsfile=None):
         citempl = citempl.replace('\\{', '').replace('\\}', '')
     else:
         citempl = None
-    if citempl:
+    if citempl is not None:
         cistrdict = dict([(k, extract_texts(v)[-1]) for k, v in extract_contact_info(doctree).iteritems()])
 
         if '{citabledata}' in citempl:

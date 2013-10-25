@@ -25,8 +25,8 @@ from cvifier import core
 parser = argparse.ArgumentParser()
 
 parser.add_argument('contentfile', help='The file with the ReST actual content for this CV, or "stdin" to use standard input.')
+parser.add_argument('writer', help='The writer to use. ')
 parser.add_argument('-o', '--outfile', help='The output file.  Default is to use stdout', default=sys.stdout)
-parser.add_argument('-w', '--writer', help='The writer. ', default='html')
 parser.add_argument('-s', '--settingsfile', help='The file with the settings for this writer. Default assumes the {writername}.cvsettings convention.', default=None)
 
 args = parser.parse_args()

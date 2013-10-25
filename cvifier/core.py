@@ -245,6 +245,17 @@ def main(content, writer, fout=None, settingsfile=None):
         if si in stgs:
             specialsettings[writer_name + '_' + si] = stgs.pop(si)
 
+    #exclude any sections requested
+    if 'excludesections' in stgs:
+        secstoexclude = [secs.strip() for secs in stgs.pop('excludesections').split(',')]
+        torem = []
+        for node in doctree:
+            if node.tagname == 'section' and str(node[0][0]) in secstoexclude:
+                torem.append(node)
+        for node in torem:
+            doctree.remove(node)
+
+
     #now generate the actual output
     outstr = publish_from_doctree(doctree, writer=writer, settings_overrides=stgs)
     outstr = apply_special_settings(outstr, specialsettings)

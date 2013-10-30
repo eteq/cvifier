@@ -174,7 +174,8 @@ def make_citable(cistrdict, writer_name, leftfields=DEFAULT_CITABLE_LEFT,
 
 
 #settings that apply here, instead of in docutils
-SPECIAL_SETTINGS = {'latex': ['nobullets', 'preitemize', 'postsection']}
+SPECIAL_SETTINGS = {'latex': ['nobullets', 'preitemize', 'postsection', 'nofootnotespace'],
+                    'html': ['onlydiv']}
 
 
 def apply_doctree_special_settings(doctree, specialsettings):
@@ -203,6 +204,21 @@ def apply_str_special_settings(writtenstr, specialsettings):
     if 'latex_preitemize' in specialsettings:
         hdr = specialsettings['latex_preitemize']
         writtenstr = writtenstr.replace(r'\begin{itemize}', hdr + '\n' + r'\begin{itemize}')
+
+    if 'latex_nofootnotespace' in specialsettings:
+        writtenstr = writtenstr.replace(' \\DUfootnotemark', '\\DUfootnotemark')
+
+    if 'html_onlydiv' in specialsettings:
+        lnstowrite = []
+        divcnt = 0
+        for l in writtenstr.split('\n'):
+            if divcnt > 0:
+                lnstowrite.append(l)
+                divcnt += l.count('<div')
+                divcnt -= l.count('</div')
+            elif '<div class="document">' in l:
+                divcnt += 1
+        writtenstr = '\n'.join(lnstowrite)
 
     return writtenstr
 
